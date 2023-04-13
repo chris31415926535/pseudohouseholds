@@ -1,9 +1,66 @@
+#' Get Pseudo-Households (PHH) for many regions, with optional parallel processing
+#'
+#' Calculate PHHs for a set of regions using a given road network.
+#'
+#' Regions will be processed sequentially by default, but parallel processing
+#' is supported if users call future::plan() before calling this function.
+#'
+#' This function is a wrapper around get_phhs_single(), and parameters are
+#' passed on to it.
+#'
+#' @param regions simple feature object, sf tibble where each row is a region
+#' @param region_idcol character, name of column with unique region id
+#' @param region_popcol character, name of column with region population
+#' @param roads simple feature object, lines or polylines with road network
+#' @param roads_idcol character, name of column containing road unique identifiers
+#' @param phh_density numeric, parameter given to sf::st_line_sample()
+#' @param min_phh_pop numeric, minimum population per phh
+#' @param min_phhs_per_region numeric, minimum phhs per region (it will try its best)
+#' @param min_phh_distance numeric, minimum distance between phhs in metres
+#' @param road_buffer_m numeric, buffer in metres for intersections
+#' @param delta_distance_m numeric, buffer in metres for intersections
+#' @param skip_unpopulated_regions boolean, should we skip regions with no population?
+#'
+#' @return a simple feature object with one row per phh in the region
+#'
+#' @export
+get_phhs_parallel <- function(regions, region_idcol, roads, region_popcol = NA, roads_idcol = NA, phh_density = 0.005, min_phh_pop = 5, min_phhs_per_region = 1, min_phh_distance = 25, road_buffer_m = 5, delta_distance_m = 5, skip_unpopulated_regions = TRUE ){
 
-get_phhs <- function(regions, region_idcol, roads, region_popcol = NA, roads_idcol = NA, phh_density = 0.005, min_phh_pop = 5, min_phhs_per_region = 1, min_phh_distance = 25, road_buffer_m = 5, delta_distance_m = 5, skip_unpopulated_regions = TRUE ){
 
-  regions_list <- split(regions, ~region_idcol)
+    # regions must each have a unique id
+  region_ids <- unique(regions[, region_idcol, drop = TRUE])
+  if (length(region_ids) < nrow(regions)) stop("Regions must each have a unique id.")
 
+  # split input regions into a list for mapping over
+  regions_list <- split(regions, region_ids)
 
+  # iterate in parallel over regions
+  phh_candidates <- furrr::future_map(regions_list, ~{
+    get_phhs_single(region = .x, region_idcol = region_idcol, region_popcol = region_popcol,
+                    roads = roads, roads_idcol = roads_idcol,
+                    phh_density = phh_density, min_phh_pop = min_phh_pop,
+                    min_phhs_per_region = min_phhs_per_region,
+                    min_phh_distance = min_phh_distance,
+                    road_buffer_m = road_buffer_m,
+                    delta_distance_m = delta_distance_m,
+                    skip_unpopulated_regions = skip_unpopulated_regions,
+                    track_warnings = TRUE)
+  } , .options=furrr::furrr_options(seed=NULL)
+  ,.progress = TRUE
+  )
+
+  # extract the valid phhs
+  phh_valid <- phh_candidates[vapply(phh_candidates, length, FUN.VALUE = 1) > 0]
+
+  # tidy them up
+  phhs <- dplyr::tibble(x=phh_valid) |>
+    tidyr::unnest(cols = c("x")) |>
+    sf::st_as_sf()
+
+  #
+  warning_cleanup()
+
+  return(phhs)
 }
 
 #' Get Pseudo-Households (PHH) for a single region
@@ -20,10 +77,12 @@ get_phhs <- function(regions, region_idcol, roads, region_popcol = NA, roads_idc
 #' @param road_buffer_m numeric, buffer in metres for intersections
 #' @param delta_distance_m numeric, buffer in metres for intersections
 #' @param skip_unpopulated_regions boolean, should we skip regions with no population?
+#' @param track_warnings boolean, internal parameter used when this function is
+#'        called by get_phhs_parallel() to ensure warnings are only shown once.
 #'
 #' @return a simple feature object with one row per phh in the region
 #' @export
-get_phhs_region <- function(region, region_idcol, roads, region_popcol = NA, roads_idcol = NA, phh_density = 0.005, min_phh_pop = 5, min_phhs_per_region = 1, min_phh_distance = 25, road_buffer_m = 5, delta_distance_m = 5, skip_unpopulated_regions = TRUE ){
+get_phhs_single <- function(region, region_idcol, roads, region_popcol = NA, roads_idcol = NA, phh_density = 0.005, min_phh_pop = 5, min_phhs_per_region = 1, min_phh_distance = 25, road_buffer_m = 5, delta_distance_m = 5, skip_unpopulated_regions = TRUE, track_warnings = FALSE ){
 
   ## INPUT VALIDATION
 
@@ -36,7 +95,7 @@ get_phhs_region <- function(region, region_idcol, roads, region_popcol = NA, roa
   # check region_popcol parameter
   if (is.na(region_popcol)) {
     use_pops <- FALSE
-    warning ("No region population column provided. PHHs will not be assigned populations.")
+    warn_once ("No region population column provided. PHHs will not be assigned populations.", track_warnings)
   } else {
     use_pops <- TRUE
     if (!region_popcol %in% colnames(region))  stop("Parameter region_popcol must name a valid column in region.")
@@ -44,7 +103,7 @@ get_phhs_region <- function(region, region_idcol, roads, region_popcol = NA, roa
 
   # check road idcol
   if (is.na(roads_idcol)) {
-    warning ("No roads id column provided. PHHs will not be traceable back to road segments.")
+    warn_once ("No roads id column provided. PHHs will not be traceable back to road segments.", track_warnings)
   } else {
     if (!roads_idcol %in% colnames(roads)) stop("Parameter roads_idcol must name a valid column in region.")
   }
@@ -291,3 +350,50 @@ get_phh_points_pushpull <- function(db, phh_onstreet, roads_idcol, delta_distanc
   # ggplot() + geom_sf(data=db) +  geom_sf(data=roads_touching_region) + geom_sf(data=phh_indb)
   return (phh_indb)
 }
+
+
+# internal function for only giving warnings once when using purrr/furrr
+# could likely be done more elegantly with environments but I can't get it to work
+warn_once_list <- function(warning_message, warnings_given = NULL) {
+
+  if (!is.null(warnings_given)){
+    if (is.null(warnings_given[[warning_message]])) {
+
+      warnings_given[warning_message] <- TRUE
+      warning(warning_message)
+    }
+  } else {
+    warning(warning_message)
+  }
+
+  return(invisible(warnings_given))
+}
+
+# internal function to warn once by setting a global option
+# https://stackoverflow.com/questions/67756783/how-do-you-add-an-environment-option-with-an-evaluated-name-in-r
+# need to clean up with warning_cleanup()
+warn_once <- function(warning_message, track_warnings = FALSE){
+
+  if (track_warnings){
+    warning_id <- gsub(x =  paste0(".phhs.",warning_message), pattern=" ", replacement = ".")
+
+    if (is.null(getOption(warning_id))){
+      do.call(options, as.list(setNames(warning_message, warning_id)))
+      warning(warning_message)
+    }
+  } else {
+    warning(warning_message)
+  }
+}
+
+# internal function to remove global options corresponding to warnings given
+# https://stackoverflow.com/questions/53988871/how-can-i-completely-remove-a-global-option-from-r-with-options
+warning_cleanup <- function() {
+  phh_options <-  grep(x = names(options()), pattern = ".phhs.", value = TRUE)
+
+  option_names <- setNames(rep(x = list(NULL), times = length(phh_options)), phh_options)
+
+  options(option_names)
+
+}
+
