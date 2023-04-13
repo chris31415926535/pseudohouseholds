@@ -1,11 +1,16 @@
 Package: pseudohouseholds
 Type: Package
-Title: What the Package Does (Title Case)
+Title: Generate Pseudohouseholds in Regions and on Road Networks
 Version: 0.1.0
-Author: Who wrote it
-Maintainer: The package maintainer <yourself@somewhere.net>
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
+Authors@R: person(given = "Christopher", 
+    family = "Belanger", 
+    email = "christopher.a.belanger@gmail.com",
+    role = c("aut", "cre", "cph"), 
+    comment = c(ORCID = "0000-0003-2070-5721"))
+Description: Given an arbitrary set of spatial regions and road networks, 
+             generate a set of representative points, or pseudohouseholds, that
+             can be used for travel burden analyis. Parallel processing is 
+             supported.
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true

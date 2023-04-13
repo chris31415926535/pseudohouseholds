@@ -391,7 +391,7 @@ warn_once <- function(warning_message, track_warnings = FALSE){
 warning_cleanup <- function() {
   phh_options <-  grep(x = names(options()), pattern = ".phhs.", value = TRUE)
 
-  option_names <- setNames(rep(x = list(NULL), times = length(phh_options)), phh_options)
+  option_names <- stats::setNames(rep(x = list(NULL), times = length(phh_options)), phh_options)
 
   options(option_names)
 
