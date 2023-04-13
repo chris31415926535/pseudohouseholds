@@ -378,7 +378,7 @@ warn_once <- function(warning_message, track_warnings = FALSE){
     warning_id <- gsub(x =  paste0(".phhs.",warning_message), pattern=" ", replacement = ".")
 
     if (is.null(getOption(warning_id))){
-      do.call(options, as.list(setNames(warning_message, warning_id)))
+      do.call(options, as.list(stats::setNames(warning_message, warning_id)))
       warning(warning_message)
     }
   } else {

@@ -1,7 +1,12 @@
 
 testthat::test_that("Sequential processing words", {
-  regions <- dplyr::bind_rows(region_shp, region_shp, region_shp)
+  # dplyr::bind_row() works interactively but fails in testing fails in testing during R CMD CHECK
+  #regions <- dplyr::bind_rows(region_shp, region_shp, region_shp)
+  regions <- region_shp
+  regions[2,] <- region_shp
+  regions[3,] <- region_shp
   regions$region_id <- 1:nrow(regions)
+  regions <- sf::st_as_sf(regions)
 
   phhs <- get_phhs_parallel(regions = regions, region_idcol = "region_id", region_popcol = "population", roads = road_shp, roads_idcol = "road_id")
 
