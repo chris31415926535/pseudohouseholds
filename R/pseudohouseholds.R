@@ -27,7 +27,7 @@
 get_phhs_parallel <- function(regions, region_idcol, roads, region_popcol = NA, roads_idcol = NA, phh_density = 0.005, min_phh_pop = 5, min_phhs_per_region = 1, min_phh_distance = 25, road_buffer_m = 5, delta_distance_m = 5, skip_unpopulated_regions = TRUE ){
 
 
-    # regions must each have a unique id
+  # regions must each have a unique id
   region_ids <- unique(regions[, region_idcol, drop = TRUE])
   if (length(region_ids) < nrow(regions)) stop("Regions must each have a unique id.")
 
@@ -57,7 +57,7 @@ get_phhs_parallel <- function(regions, region_idcol, roads, region_popcol = NA, 
     tidyr::unnest(cols = c("x")) |>
     sf::st_as_sf()
 
-  #
+  # remove any temporary options used to suppress repeated warnings
   warning_cleanup()
 
   return(phhs)
@@ -113,7 +113,6 @@ get_phhs_single <- function(region, region_idcol, roads, region_popcol = NA, roa
   roads_crs <- sf::st_crs(roads)
   if (region_crs != roads_crs) stop("Region and roads must have same CRS (coordinate reference system).")
 
-
   # if no road idcol is given, we give each road a simple numeric identifier
   # and a silly column ID name so we can remove it later
   if (is.na(roads_idcol)) {
@@ -157,19 +156,13 @@ get_phhs_single <- function(region, region_idcol, roads, region_popcol = NA, roa
   # ggplot() + geom_sf(data=region) + geom_sf(data=roads_touching_region)
 
   # if it doesn't intersect any roads, return no results.
-  # FIXME TODO this could be a parameter--e.g. could return centroid instead
+  # for future consideration, perhaps options--e.g. could return centroid instead
   if (nrow(roads_touching_region) == 0) {
-    #result <- sf::st_centroid(region)
-    #result$DBUID <- region$DBUID
-    #result[, region_idcol] <- region$DBUID
-    #result$pop <- region_pop
-    #result$offroad <- TRUE
     return(dplyr::tibble())
   }
 
   ## set candidate PHHs by sampling road segments at the density set by the user
   # cast to points
-
   phh_onstreet <- sf::st_line_sample(roads_touching_region, density = phh_density) |>
     sf::st_cast("POINT")
 
@@ -187,18 +180,14 @@ get_phhs_single <- function(region, region_idcol, roads, region_popcol = NA, roa
     roads_for_sample <- roads_touching_region |> dplyr::arrange(dplyr::desc(lengths)) |> dplyr::slice_head(n=min_phhs_per_region)
     num_to_sample <- ceiling(min_phhs_per_region/nrow(roads_for_sample))
 
-    phh_onstreet <- sf::st_line_sample(
-      roads_for_sample
-      # sf::st_intersection(roads_touching_region, sf::st_buffer(region, road_buffer_m)),
-      ,n=num_to_sample
-    ) |>
+    phh_onstreet <- sf::st_line_sample(roads_for_sample, n=num_to_sample) |>
       sf::st_cast("POINT")
   }
 
   # add back road information for traceability
   # this is convoluted because points don't intersect lines reliably
   # need to buffer the road, get point intersections
-  # TODO explore buffering the points instead, may be faster
+  # for future optimization, explore buffering the points instead, may be faster
   sf::st_agr(roads_touching_region) = "constant"
   phh_onstreet <- sf::st_intersection(sf::st_buffer(roads_touching_region, 1), phh_onstreet)
 
@@ -291,30 +280,38 @@ get_phhs_single <- function(region, region_idcol, roads, region_popcol = NA, roa
 
 
 
-# testing--if we use NAD with metres is there a way to use simple geometry to try
-# to get points X metres towards and away from the centroid? then if hte point stowards
-# aren't in the db because of weird geometries we can try the pushes away
+# Internal function to create candidate off-road PHHs from points samples on
+# road networks. For each point on the road, the algorithm creates two candidate
+# PHHs: one moved directly towards the region centroid, and one moved away from
+# it. The distance to move is given by the paramter delta_distance.
+# Creating these two candidates helps ensure we have valid PHHs even for regions
+# with weird shapes--e.g. a banana or a donut, where the centroid is outside of
+# the region, and so simply pulling shapes from the edges will often move them
+# outside the region. In cases where both candidates are valid, unreasonably
+# close PHHs will be cleaned up later.
 get_phh_points_pushpull <- function(db, phh_onstreet, roads_idcol, delta_distance = 5){
 
   # for clean R CMD CHECK
   PHH_X_pull <- PHH_X_push <- PHH_Y_pull <- PHH_Y_push <- geometry <- NULL
 
-  # get db centroid
+  # get db centroid coordinates
   db_centroid <- sf::st_centroid(db)
   db_centroid_coords <- dplyr::as_tibble(sf::st_coordinates(db_centroid))
   colnames(db_centroid_coords) <- c("DB_X", "DB_Y")
 
-
+  # get phh coordinates
   phh_onstreet_coords <- dplyr::as_tibble(sf::st_coordinates(phh_onstreet))
   colnames(phh_onstreet_coords) <- c("PHH_X", "PHH_Y")
   phh_onstreet_coords[, roads_idcol] <- phh_onstreet[, roads_idcol, drop=TRUE]
 
+  # create data table for vectorized anaylsis
   phh_foranalysis <-   dplyr::bind_cols(phh_onstreet_coords, db_centroid_coords)
 
-
-  ## BASE R is 100x faster than dplyr
-
-  # bench::mark(code={
+  # For each point on the road network, create two potential PHHs: one "pulled"
+  # towards the region centroid, and one pushed away. This code block just
+  # gets a unit vector from the point to the centroid and then adds/subtracts
+  # it from each point on the road.
+  # Note: In benchmarking, using base R was ~100x faster than dplyr
   phh_foranalysis$deltaY = phh_foranalysis$DB_Y - phh_foranalysis$PHH_Y
   phh_foranalysis$deltaX = phh_foranalysis$DB_X - phh_foranalysis$PHH_X
   phh_foranalysis$magnitude = sqrt(phh_foranalysis$deltaY^2 + phh_foranalysis$deltaX^2)
@@ -324,64 +321,61 @@ get_phh_points_pushpull <- function(db, phh_onstreet, roads_idcol, delta_distanc
   phh_foranalysis$PHH_Y_pull = phh_foranalysis$PHH_Y + phh_foranalysis$unit_vecY * delta_distance
   phh_foranalysis$PHH_X_push = phh_foranalysis$PHH_X - phh_foranalysis$unit_vecX * delta_distance
   phh_foranalysis$PHH_Y_push = phh_foranalysis$PHH_Y - phh_foranalysis$unit_vecY * delta_distance
-  # })
 
-  # bench::mark(code = {
+  # extract input CRS so we can re-assign it later
   original_crs <- sf::st_crs(phh_onstreet)
-  phh_push <- sf::st_as_sf(dplyr::select(phh_foranalysis,  PHH_X_push, PHH_Y_push), coords = c("PHH_X_push","PHH_Y_push"), crs=original_crs)
-  phh_push$id = 1:nrow(phh_push)
-  phh_pull <- sf::st_as_sf(dplyr::select(phh_foranalysis,  PHH_X_pull, PHH_Y_pull), coords = c("PHH_X_pull","PHH_Y_pull"), crs=original_crs)
-  phh_pull$id = 1:nrow(phh_pull)
+
+  # create separate sf objects for the pushed and pulled PHH candidates
+  phh_push <- sf::st_as_sf(dplyr::select(phh_foranalysis, PHH_X_push, PHH_Y_push),
+                           coords = c("PHH_X_push","PHH_Y_push"),
+                           crs=original_crs)
+
+  phh_pull <- sf::st_as_sf(dplyr::select(phh_foranalysis, PHH_X_pull, PHH_Y_pull),
+                           coords = c("PHH_X_pull","PHH_Y_pull"),
+                           crs=original_crs)
 
   # consider both at once
   phh_pushpull <- dplyr::bind_rows(phh_push, phh_pull)
   phh_pushpull[, roads_idcol] <- rep(x = phh_onstreet[, roads_idcol, drop=TRUE], times=2)
 
-  # })
-
   # ggplot() + geom_sf(data=db) +  geom_sf(data=roads_touching_region) + geom_sf(data=phh_push, colour="red")+ geom_sf(data=phh_pull, colour="blue") +  geom_sf(data=db_centroid)
 
+  # remove candidates that aren't inside the region
   phh_indb <- sf::st_filter(phh_pushpull, db)
 
-
-  phh_indb$id <- NULL
+  # rename the geometry column for compatibility with the sf package
   phh_indb <- dplyr::rename(phh_indb, x = geometry)
 
   # ggplot() + geom_sf(data=db) +  geom_sf(data=roads_touching_region) + geom_sf(data=phh_indb)
+
   return (phh_indb)
 }
 
 
-# internal function for only giving warnings once when using purrr/furrr
-# could likely be done more elegantly with environments but I can't get it to work
-warn_once_list <- function(warning_message, warnings_given = NULL) {
-
-  if (!is.null(warnings_given)){
-    if (is.null(warnings_given[[warning_message]])) {
-
-      warnings_given[warning_message] <- TRUE
-      warning(warning_message)
-    }
-  } else {
-    warning(warning_message)
-  }
-
-  return(invisible(warnings_given))
-}
-
-# internal function to warn once by setting a global option
+# internal function for only giving warnings once when calling get_phhs_single()
+# many times using purrr/furrr. This implementation works by setting a global
+# option for each warning, and requires warning_cleanup() to be called afterwards
+# to clear the options.
+# For future optimization: look into doing this with environments instead
+# Reference for setting options procedurally:
 # https://stackoverflow.com/questions/67756783/how-do-you-add-an-environment-option-with-an-evaluated-name-in-r
-# need to clean up with warning_cleanup()
+# Parameter `warning_message` is a string with the warning to display.
+# Parameter `track_warnings` is a boolean for whether to set the options or not.
 warn_once <- function(warning_message, track_warnings = FALSE){
 
   if (track_warnings){
+    # create a unique id using the warning message text to use as an option name
     warning_id <- gsub(x =  paste0(".phhs.",warning_message), pattern=" ", replacement = ".")
 
+    # if this option does not exist, create it and set its value as the warning message
     if (is.null(getOption(warning_id))){
       do.call(options, as.list(stats::setNames(warning_message, warning_id)))
+
+      # also issue a warning!
       warning(warning_message)
     }
   } else {
+    # if we're not tracking warnings, just issue the warning
     warning(warning_message)
   }
 }
@@ -389,11 +383,11 @@ warn_once <- function(warning_message, track_warnings = FALSE){
 # internal function to remove global options corresponding to warnings given
 # https://stackoverflow.com/questions/53988871/how-can-i-completely-remove-a-global-option-from-r-with-options
 warning_cleanup <- function() {
+  # identify all package options which contain the unique string ".phhs."
   phh_options <-  grep(x = names(options()), pattern = ".phhs.", value = TRUE)
 
+  # set them all to NULL
   option_names <- stats::setNames(rep(x = list(NULL), times = length(phh_options)), phh_options)
-
-  options(option_names)
 
 }
 
