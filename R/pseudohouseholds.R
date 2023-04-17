@@ -203,25 +203,9 @@ get_phhs_single <- function(region, region_idcol, roads, region_popcol = NA, roa
 
   #ggplot() + geom_sf(data=region) + geom_sf(data=roads_touching_region) + geom_sf(data=phh_inregion)
 
-  ## if we're using populations, make sure we get the right number of points here
-  # TODOD FIXME create a tested function instead of this
-  if (use_pops){
-    if (region_pop/nrow(phh_inregion) < min_phh_pop) {
-      num_needed <- ceiling(region_pop/min_phh_pop)
-
-      num_orig <- nrow(phh_inregion)
-      num_per_rep <- ceiling(num_orig/num_needed)
-      num_reps <- ceiling(num_orig/num_per_rep)
-      # looks complex but this is to whittle our list down
-      # say we have 6 but need 4.
-      filter_index <- rep(c(TRUE, rep(FALSE, times= num_per_rep)), times=(num_reps+1))[1:num_orig]
-      phh_inregion_filtered <- phh_inregion[filter_index,]
-    } else {
-      phh_inregion_filtered <- phh_inregion
-    }
-  } else {
-    phh_inregion_filtered <- phh_inregion
-  }
+  ## if we're using populations, make sure we get the right number of points
+  # to respect the minimum population requirements
+  phh_inregion_filtered <- filter_phhs(use_pops, region_pop, phh_inregion, min_phh_pop)
 
   ## make sure PHHs aren't too close together
   # create a buffer around them of radius 0.5 the min separation distance
@@ -390,4 +374,42 @@ warning_cleanup <- function() {
   option_names <- stats::setNames(rep(x = list(NULL), times = length(phh_options)), phh_options)
 
 }
+
+
+# Internal function to "thin out" the set of PHHs so that we have the minimum
+# desired population per PHH. We take the number of input PHHS Ni, find the
+# number oh PHHs we need Nn, and then take every ceiling(Ni/Nn) PHHs.
+# Eg if minimum desired PHH pop is 5, the region pop is 10, and we have 10
+# potential PHHs, reduce it so we only have 2 PHHs with pop 5 each by taking
+# the 1st and 6th.
+filter_phhs <- function(use_pops, region_pop, phh_inregion, min_phh_pop) {
+
+  # if we're not using populations, return the phhs we have without change
+  if (!use_pops) return (phh_inregion)
+
+  # if the candidate PHHs would already get more than the desired minimum pop,
+  # return them without change
+  if (region_pop/nrow(phh_inregion) >= min_phh_pop) return(phh_inregion)
+
+  # and if the minimum is impossible to meet, just take the first PHH
+  num_needed <- floor(region_pop/min_phh_pop)
+  if (num_needed < 1) return (phh_inregion[1,])
+
+  # number of PHHs we start with
+  num_orig <- nrow(phh_inregion)
+
+  num_per_rep <- ceiling(num_orig/num_needed)
+
+  num_reps <- ceiling(num_orig/num_per_rep) + 1
+
+  filter_seq <- c(TRUE, rep(FALSE, times = (num_per_rep-1)))
+
+  filter_index <- rep(filter_seq, times=(num_reps))[1:num_orig]
+
+  phh_inregion_filtered <- phh_inregion[filter_index,]
+
+  return (phh_inregion_filtered)
+}
+
+
 
