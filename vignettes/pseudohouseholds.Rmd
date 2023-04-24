@@ -102,6 +102,9 @@ Next we sample points along these road segments. The sampling frequency is given
 
 ```
 
+Optionally, users can set a desired minimum number of regional PHHs using the
+parameter `min_phhs_per_region`, which can be helpful with smaller regions (e.g.
+small city blocks).
 
 ### Create candidate PHHs beside the road network
 
@@ -188,19 +191,46 @@ Next, we keep only those candidate PHHs that are inside the region using a spati
 
 ### (Optionally) Ensure our PHHs have a minimum population
 
-If we are assigning populations to our  
+If we are assigning populations to our PHHs, we next  check to ensure each PHH
+will have at least some minimum population set by the parameter `min_phh_pop`. 
+This is helpful for "thinning out" PHHs in large sparsely-populated rural areas,
+where the default line sampling density would lead to a large number of PHHs
+with populations less than 1.
 
+This can be disabled by setting `min_phh_pop` to 0.
 
-### Remove candidates that are too close to others
+### (Optionally) Remove candidates that are too close to others
 
+Optionally, we can remove any PHHs that are within `min_phh_distance` units of
+another. This is helpful to reduce artificial over-crowding caused by specific
+road features: for example, if many short road segments converge, each could
+receive a candidate PHH from `sf::st_line_sample()`.
 
-### Distribute regional properties among PHHs
+### Distribute regional population among PHHs
 
-
-
-## Example
-
+We now have a set of points that are near a road, within the region, and not too
+close together. The final step is to assign each PHH an equal share of the region's
+population.
 
 ## Considerations
 
+### The final number of PHHs may be more or less than you expect.
 
+The algorithm attempts to satisfy several competing criteria--the minimum number
+of PHHs per region, the minimum population of those PHHs, and the minimum
+distance between them--and it may not be possible to meet them all. In particular,
+it will make its best effort to satisfy `min_phhs_per_region`, but `min_phh_pop`
+and `min_phh_distance` take precedence.
+
+### Any input roads may receive PHHs, so ensure only habitable roads are used as inputs.
+
+Standard GIGO principles apply, so if there are any roads where you don't want
+PHHs (e.g. highways, service roads, unpaved trails), take care to remove them
+beforehand.
+
+### PHHs do not correspond directly to dwellings, and should only be used as a proxy to "smooth out" populations for analysis.
+
+Any analysis using PHHs should be clear that they rely on approximations and do
+not provide "true" population distributions (whatever that might even mean).
+While PHHs can provide advantages over centroid-based analyses, they also have
+limitations and should be used with these limitations in mind.
