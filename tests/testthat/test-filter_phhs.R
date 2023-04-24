@@ -1,11 +1,5 @@
-# phh_inregion <- dplyr::tibble(id = 1:100)
-# use_pops <- TRUE
-# region_pop <- 100
-# min_phh_pop <- 29
-#
-# filter_phhs(use_pops, region_pop, phh_inregion, min_phh_pop)
-#
-# region_pop/nrow(filter_phhs(use_pops, region_pop, phh_inregion, min_phh_pop) )
+library(dplyr, warn.conflicts = FALSE)
+library(purrr, warn.conflicts = FALSE)
 
 testthat::test_that("PHH population filtering returns input if population not enabled", {
 
@@ -52,13 +46,17 @@ testthat::test_that("PHH population filtering respects minimum population reques
   # test set: 200 PHHs, 1000 total population
   phh_inregion <- dplyr::tibble(id = 1:200)
   use_pops <- TRUE
+  min_phh_pops <- 1:1000
   region_pop <- 1000
 
   # test for each min pop between 1 and the region pop
-  for (min_phh_pop in 1:(region_pop)){
+  results <- purrr::map_lgl(min_phh_pops, function(min_phh_pop) {
+
     filtered_phhs <- filter_phhs(use_pops, region_pop, phh_inregion, min_phh_pop)
     phh_pop <- region_pop / nrow(filtered_phhs)
 
-    testthat::expect_gte(phh_pop, min_phh_pop)
-  }
-})
+    return(phh_pop >= min_phh_pop)
+  })
+
+  testthat::expect_true(all(results))
+}) # end test "PHH population filtering respects minimum population request"

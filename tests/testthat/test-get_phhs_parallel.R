@@ -1,3 +1,6 @@
+library(dplyr, warn.conflicts = FALSE)
+library(purrr, warn.conflicts = FALSE)
+
 
 testthat::test_that("Sequential processing words", {
   # dplyr::bind_row() works interactively but fails in testing fails in testing during R CMD CHECK

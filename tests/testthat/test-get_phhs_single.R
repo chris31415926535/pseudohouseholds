@@ -1,3 +1,6 @@
+library(dplyr, warn.conflicts = FALSE)
+library(purrr, warn.conflicts = FALSE)
+
 # Unit tests for get_phhs_single(), function that finds PHH for a single region
 
 testthat::test_that(
@@ -86,6 +89,4 @@ testthat::test_that("Error if bad column IDs supplied", {
 
 
 
-
-#region = region_shp; region_idcol = "region_id"; region_popcol = "population"; roads = road_shp; roads_idcol = "road_id"; phh_density = 0.005; min_phh_pop = 5; min_phhs_per_region = 1; min_phh_distance = 25; road_buffer_m = 5; delta_distance_m = 5; skip_unpopulated_regions = TRUE
 

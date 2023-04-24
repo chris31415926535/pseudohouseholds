@@ -26,7 +26,6 @@
 #' @export
 get_phhs_parallel <- function(regions, region_idcol, roads, region_popcol = NA, roads_idcol = NA, phh_density = 0.005, min_phh_pop = 5, min_phhs_per_region = 1, min_phh_distance = 25, road_buffer_m = 5, delta_distance_m = 5, skip_unpopulated_regions = TRUE ){
 
-
   # regions must each have a unique id
   region_ids <- unique(regions[, region_idcol, drop = TRUE])
   if (length(region_ids) < nrow(regions)) stop("Regions must each have a unique id.")
@@ -209,30 +208,7 @@ get_phhs_single <- function(region, region_idcol, roads, region_popcol = NA, roa
 
   ## make sure PHHs aren't too close together
   # create a buffer around them of radius 0.5 the min separation distance
-  phh_testbuffer <- sf::st_buffer(phh_inregion_filtered, dist = min_phh_distance/2)
-
-  # ggplot() + geom_sf(data=region) + geom_sf(data=phh_testbuffer)
-
-  phh_intersections <- sf::st_intersects(phh_testbuffer) |>
-    lapply(unlist)
-
-  num_intersections <- unlist(lapply(phh_intersections, length))
-  phhs_to_investigate <- which(num_intersections>1)
-
-  phh_keepers_index <- rep(TRUE, times=length(num_intersections))
-
-  # if more than one candidate phh, look through all candidate phhs
-  if (length(phhs_to_investigate) > 1){
-    for (i in phhs_to_investigate){
-      # if this one has already been eliminated, skip it
-      if (!phh_keepers_index[[i]])   next
-      # keep this phh, eliminate any other phhs its the buffer zone
-      phh_keepers_index[setdiff(phh_intersections[[i]], i)] <- FALSE
-    } # end for
-  } # end if
-
-  # use our index to keep the keepers
-  phh_keepers <- phh_inregion_filtered[phh_keepers_index,]
+  phh_keepers <- remove_clustered_phhs (phh_inregion_filtered, min_phh_distance)
 
   #ggplot() + geom_sf(data=region) + geom_sf(data=roads_touching_region) + geom_sf(data=phh_keepers)
 
@@ -411,5 +387,32 @@ filter_phhs <- function(use_pops, region_pop, phh_inregion, min_phh_pop) {
   return (phh_inregion_filtered)
 }
 
+remove_clustered_phhs <- function(phh_inregion_filtered, min_phh_distance) {
 
+  phh_testbuffer <- sf::st_buffer(phh_inregion_filtered, dist = min_phh_distance/2)
 
+  # ggplot() + geom_sf(data=region) + geom_sf(data=phh_testbuffer)
+
+  phh_intersections <- sf::st_intersects(phh_testbuffer) |>
+    lapply(unlist)
+
+  num_intersections <- unlist(lapply(phh_intersections, length))
+  phhs_to_investigate <- which(num_intersections>1)
+
+  phh_keepers_index <- rep(TRUE, times=length(num_intersections))
+
+  # if more than one candidate phh, look through all candidate phhs
+  if (length(phhs_to_investigate) > 1){
+    for (i in phhs_to_investigate){
+      # if this one has already been eliminated, skip it
+      if (!phh_keepers_index[[i]])   next
+      # keep this phh, eliminate any other phhs its the buffer zone
+      phh_keepers_index[setdiff(phh_intersections[[i]], i)] <- FALSE
+    } # end for
+  } # end if
+
+  # use our index to keep the keepers
+  phh_keepers <- phh_inregion_filtered[phh_keepers_index,]
+
+  return (phh_keepers)
+}
