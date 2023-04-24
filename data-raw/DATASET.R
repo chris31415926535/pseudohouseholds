@@ -64,3 +64,33 @@ sf::st_crs(road_shp)$wkt <- gsub("°|º", "\\\u00b0", sf::st_crs(road_shp)$wkt)
 
 usethis::use_data(region_shp, overwrite = TRUE)
 usethis::use_data(road_shp, overwrite = TRUE)
+
+
+######### Ottawa regions, populations, and roads
+
+ottawa_db_shp <- sf::read_sf("~/datascience/data/spatial/ldb_000b21a_e/ldb_000b21a_e.shp") |>
+  dplyr::filter(stringr::str_detect(DBUID, "^3506")) |>
+  dplyr::select(DBUID)
+
+ottawa_db_pop <- readr::read_csv("~/datascience/data/spatial/geographic_attribute_file/2021_92-151_X.csv") |>
+  dplyr::select(DBUID = DBUID_IDIDU, dbpop2021 = DBPOP2021_IDPOP2021) |>
+  dplyr::filter(DBUID %in% ottawa_db_shp$DBUID) |>
+  dplyr::mutate(DBUID = as.character(DBUID))
+
+ottawa_db_shp <- dplyr::left_join(ottawa_db_shp, ottawa_db_pop, by = "DBUID") |>
+  dplyr::select(DBUID, dbpop2021, geometry) |>
+  sf::st_transform(crs=32189)
+
+sf::st_crs(ottawa_db_shp)$wkt <- gsub("°|º", "\\\u00b0", sf::st_crs(ottawa_db_shp)$wkt)
+
+usethis::use_data(ottawa_db_shp, overwrite = TRUE)
+
+
+ottawa_roads_shp <- sf::read_sf("~/datascience/data/spatial/lrnf000r21a_e/lrnf000r21a_e.shp",
+                                query = 'SELECT NGD_UID, NAME, RANK, CLASS FROM "lrnf000r21a_e" WHERE CSDNAME_L = \'Ottawa\' OR CSDNAME_R = \'Ottawa\' ')
+
+ottawa_roads_shp <- sf::st_transform(ottawa_roads_shp, crs=32189)
+
+sf::st_crs(ottawa_roads_shp)$wkt <- gsub("°|º", "\\\u00b0", sf::st_crs(ottawa_roads_shp)$wkt)
+
+usethis::use_data(ottawa_roads_shp, overwrite = TRUE)
