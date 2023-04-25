@@ -24,6 +24,7 @@ Depends:
     R (>= 2.10)
 Suggests: 
     covr,
+    future,
     ggplot2,
     ggspatial,
     knitr,

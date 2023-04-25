@@ -30,10 +30,8 @@ column that can be used for filtering and further analysis. Note that these
 tests may fail if PHHs were generated without using population data.
 }
 \examples{
-\dontrun{
 phhs <- get_phhs_single(region = region_shp, region_idcol = "region_id",
 region_popcol = "population", roads = road_shp, roads_idcol = "road_id")
 validate_phhs(phhs = phhs, regions = region_shp, region_idcol = "region_id",
 region_popcol = "population")
-}
 }
