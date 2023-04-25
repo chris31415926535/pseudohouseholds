@@ -16,9 +16,9 @@
 #' @param phh_density numeric, parameter given to sf::st_line_sample()
 #' @param min_phh_pop numeric, minimum population per phh
 #' @param min_phhs_per_region numeric, minimum phhs per region (it will try its best)
-#' @param min_phh_distance numeric, minimum distance between phhs in metres
-#' @param road_buffer_m numeric, buffer in metres for intersections
-#' @param delta_distance_m numeric, buffer in metres for intersections
+#' @param min_phh_distance numeric, minimum distance between phhs in meters
+#' @param road_buffer_m numeric, buffer in meters for intersections
+#' @param delta_distance_m numeric, buffer in meters for intersections
 #' @param skip_unpopulated_regions boolean, should we skip regions with no population?
 #'
 #' @return a simple feature object with one row per phh in the region
@@ -90,9 +90,9 @@ get_phhs_parallel <- function(regions, region_idcol, roads, region_popcol = NA, 
 #' @param phh_density numeric, parameter given to sf::st_line_sample()
 #' @param min_phh_pop numeric, minimum population per phh
 #' @param min_phhs_per_region numeric, minimum phhs per region (it will try its best)
-#' @param min_phh_distance numeric, minimum distance between phhs in metres
-#' @param road_buffer_m numeric, buffer in metres for intersections
-#' @param delta_distance_m numeric, buffer in metres for intersections
+#' @param min_phh_distance numeric, minimum distance between phhs in meters
+#' @param road_buffer_m numeric, buffer in meters for intersections
+#' @param delta_distance_m numeric, buffer in meters for intersections
 #' @param skip_unpopulated_regions boolean, should we skip regions with no population?
 #' @param track_warnings boolean, internal parameter used when this function is
 #'        called by get_phhs_parallel() to ensure warnings are only shown once.

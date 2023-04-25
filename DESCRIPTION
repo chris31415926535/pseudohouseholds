@@ -9,7 +9,7 @@ Authors@R: person(given = "Christopher",
     comment = c(ORCID = "0000-0003-2070-5721"))
 Description: Given an arbitrary set of spatial regions and road networks, 
              generate a set of representative points, or pseudohouseholds, that
-             can be used for travel burden analyis. Parallel processing is 
+             can be used for travel burden analysis. Parallel processing is 
              supported.
 License: MIT + file LICENSE
 Encoding: UTF-8

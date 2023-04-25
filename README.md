@@ -16,6 +16,13 @@ for population-weighted travel analyses.
 
 ## Installation
 
+You can install the current published version of pseudohouseholds from
+[CRAN](https://cran.r-project.org/) with:
+
+``` r
+install.packages("pseudohouseholds")
+```
+
 You can install the development version of pseudohouseholds from
 [GitHub](https://github.com/) with:
 
@@ -47,7 +54,7 @@ By contrast, many travel analyses assume that a region’s entire
 population is concentrated at a single point, usually the region’s
 centroid. While this assumption can be valid for smaller regions like
 city blocks, it breaks in larger or rural regions where the population
-may be more dispersed, or regions with unnusual shapes that may not
+may be more dispersed, or regions with unusual shapes that may not
 contain their own centroids.
 
 ## The algorithm for creating pseudohouseholds
@@ -84,7 +91,7 @@ print(db)
 
 Note that its coordinate reference system (CRS) is *projected*.
 Specifically, it’s using NAD83/MTM zone 9 (32189) which gives units in
-meters. It’s important to use a projeced CRS with this package.
+meters. It’s important to use a projected CRS with this package.
 
 Let’s also plot it to get an idea of its scale:
 
@@ -110,7 +117,7 @@ Plotting our DB and the road segments that intersect it:
 Next we sample points along these road segments. The sampling frequency
 is given by the parameter `phh_density`, which is passed along directly
 to the function `sf::st_line_sample()` and is measured in units of “PHHs
-per unit.” The default value is 0.005 which, in metres, translates to
+per unit.” The default value is 0.005 which, in meters, translates to
 one PHH every 200 meters. Note that this is for our initial sampling,
 and that the final PHHs may be closer or farther than this.
 

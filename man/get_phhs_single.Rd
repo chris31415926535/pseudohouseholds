@@ -37,11 +37,11 @@ get_phhs_single(
 
 \item{min_phhs_per_region}{numeric, minimum phhs per region (it will try its best)}
 
-\item{min_phh_distance}{numeric, minimum distance between phhs in metres}
+\item{min_phh_distance}{numeric, minimum distance between phhs in meters}
 
-\item{road_buffer_m}{numeric, buffer in metres for intersections}
+\item{road_buffer_m}{numeric, buffer in meters for intersections}
 
-\item{delta_distance_m}{numeric, buffer in metres for intersections}
+\item{delta_distance_m}{numeric, buffer in meters for intersections}
 
 \item{skip_unpopulated_regions}{boolean, should we skip regions with no population?}
 
