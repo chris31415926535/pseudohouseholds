@@ -24,6 +24,22 @@
 #' @return a simple feature object with one row per phh in the region
 #'
 #' @export
+#'
+#' @examples
+#' \dontrun{
+#'
+#'  # Create PHHs for the first 5 dissemination blocks in Ottawa, Ontario, without
+#'  # using any parallel processing
+#'  phhs <- get_phhs_parallel(region = ottawa_db_shp[1:5,], region_idcol = "DBUID", region_popcol = "dbpop2021", roads = ottawa_roads_shp, roads_idcol = "NGD_UID")
+#'
+#'  # Create PHHs for the first 200 dissemination blocks in Ottawa, Ontario, using
+#'  # parallel processing (consult documentation for the package future for details
+#'  # about parallel processing).
+#'  library(future)
+#'  future::plan(future::multisession, workers = 10)
+#'  phhs <- get_phhs_parallel(region = ottawa_db_shp[1:200,], region_idcol = "DBUID", region_popcol = "dbpop2021", roads = ottawa_roads_shp, roads_idcol = "NGD_UID")
+#' }
+#'
 get_phhs_parallel <- function(regions, region_idcol, roads, region_popcol = NA, roads_idcol = NA, phh_density = 0.005, min_phh_pop = 5, min_phhs_per_region = 1, min_phh_distance = 25, road_buffer_m = 5, delta_distance_m = 5, skip_unpopulated_regions = TRUE ){
 
   # regions must each have a unique id
@@ -81,6 +97,12 @@ get_phhs_parallel <- function(regions, region_idcol, roads, region_popcol = NA, 
 #'
 #' @return a simple feature object with one row per phh in the region
 #' @export
+#'
+#' @examples
+#' \dontrun{
+#' phhs <- get_phhs_single(region = region_shp, region_idcol = "region_id", region_popcol = "population", roads = road_shp, roads_idcol = "road_id")
+#' }
+#'
 get_phhs_single <- function(region, region_idcol, roads, region_popcol = NA, roads_idcol = NA, phh_density = 0.005, min_phh_pop = 5, min_phhs_per_region = 1, min_phh_distance = 25, road_buffer_m = 5, delta_distance_m = 5, skip_unpopulated_regions = TRUE, track_warnings = FALSE ){
 
   ## INPUT VALIDATION
@@ -417,6 +439,32 @@ remove_clustered_phhs <- function(phh_inregion_filtered, min_phh_distance) {
   return (phh_keepers)
 }
 
+
+#' Validate Pseudohouseholds (PHHs)
+#'
+#' This function runs two tests to ensure that PHHs meet minimal criteria for
+#' validity: it checks to see whether PHH populations sum accurately to region
+#' populations, and whether each populated region has at least one PHH. Results
+#' are returned in a data frame, and any failing regions are returned in a list-
+#' column that can be used for filtering and further analysis. Note that these
+#' tests may fail if PHHs were generated without using population data.
+#'
+#' @param phhs A data frame containing a set of PHHs.
+#' @param regions A simple feature object, sf tibble where each row is a region,
+#'          used to generate the PHHs.
+#' @param region_idcol Character, the name of the column in both `phhs` and `regions`
+#'          containing regional identifiers.
+#' @param region_popcol Character, the name of the column in both `phhs` and `regions`
+#'          containing population data.
+#'
+#' @return A data frame containing test outputs.
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' phhs <- get_phhs_single(region = region_shp, region_idcol = "region_id", region_popcol = "population", roads = road_shp, roads_idcol = "road_id")
+#' validate_phhs(phhs = phhs, regions = region_shp, region_idcol = "region_id", region_popcol = "population")
+#' }
 validate_phhs <- function(phhs, regions, region_idcol, region_popcol){
 
   # rename columns for easy testing

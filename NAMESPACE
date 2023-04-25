@@ -2,3 +2,4 @@
 
 export(get_phhs_parallel)
 export(get_phhs_single)
+export(validate_phhs)
