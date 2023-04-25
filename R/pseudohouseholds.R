@@ -30,14 +30,16 @@
 #'
 #'  # Create PHHs for the first 5 dissemination blocks in Ottawa, Ontario, without
 #'  # using any parallel processing
-#'  phhs <- get_phhs_parallel(region = ottawa_db_shp[1:5,], region_idcol = "DBUID", region_popcol = "dbpop2021", roads = ottawa_roads_shp, roads_idcol = "NGD_UID")
+#'  phhs <- get_phhs_parallel(region = ottawa_db_shp[1:5,], region_idcol = "DBUID",
+#'  region_popcol = "dbpop2021", roads = ottawa_roads_shp, roads_idcol = "NGD_UID")
 #'
 #'  # Create PHHs for the first 200 dissemination blocks in Ottawa, Ontario, using
 #'  # parallel processing (consult documentation for the package future for details
 #'  # about parallel processing).
 #'  library(future)
 #'  future::plan(future::multisession, workers = 10)
-#'  phhs <- get_phhs_parallel(region = ottawa_db_shp[1:200,], region_idcol = "DBUID", region_popcol = "dbpop2021", roads = ottawa_roads_shp, roads_idcol = "NGD_UID")
+#'  phhs <- get_phhs_parallel(region = ottawa_db_shp[1:200,], region_idcol = "DBUID",
+#'   region_popcol = "dbpop2021", roads = ottawa_roads_shp, roads_idcol = "NGD_UID")
 #' }
 #'
 get_phhs_parallel <- function(regions, region_idcol, roads, region_popcol = NA, roads_idcol = NA, phh_density = 0.005, min_phh_pop = 5, min_phhs_per_region = 1, min_phh_distance = 25, road_buffer_m = 5, delta_distance_m = 5, skip_unpopulated_regions = TRUE ){
@@ -100,7 +102,8 @@ get_phhs_parallel <- function(regions, region_idcol, roads, region_popcol = NA, 
 #'
 #' @examples
 #' \dontrun{
-#' phhs <- get_phhs_single(region = region_shp, region_idcol = "region_id", region_popcol = "population", roads = road_shp, roads_idcol = "road_id")
+#' phhs <- get_phhs_single(region = region_shp, region_idcol = "region_id",
+#' region_popcol = "population", roads = road_shp, roads_idcol = "road_id")
 #' }
 #'
 get_phhs_single <- function(region, region_idcol, roads, region_popcol = NA, roads_idcol = NA, phh_density = 0.005, min_phh_pop = 5, min_phhs_per_region = 1, min_phh_distance = 25, road_buffer_m = 5, delta_distance_m = 5, skip_unpopulated_regions = TRUE, track_warnings = FALSE ){
@@ -172,7 +175,6 @@ get_phhs_single <- function(region, region_idcol, roads, region_popcol = NA, roa
   roads_touching_region <- sf::st_intersection(roads, sf::st_buffer(region, road_buffer_m)) |>
     sf::st_cast("MULTILINESTRING", warn = FALSE) |>
     sf::st_cast("LINESTRING", warn = FALSE)
-
 
   # ggplot() + geom_sf(data=region) + geom_sf(data=roads_touching_region)
 
@@ -258,8 +260,6 @@ get_phhs_single <- function(region, region_idcol, roads, region_popcol = NA, roa
 
   return(result)
 }
-
-
 
 
 # Internal function to create candidate off-road PHHs from points samples on
@@ -462,10 +462,15 @@ remove_clustered_phhs <- function(phh_inregion_filtered, min_phh_distance) {
 #'
 #' @examples
 #' \dontrun{
-#' phhs <- get_phhs_single(region = region_shp, region_idcol = "region_id", region_popcol = "population", roads = road_shp, roads_idcol = "road_id")
-#' validate_phhs(phhs = phhs, regions = region_shp, region_idcol = "region_id", region_popcol = "population")
+#' phhs <- get_phhs_single(region = region_shp, region_idcol = "region_id",
+#' region_popcol = "population", roads = road_shp, roads_idcol = "road_id")
+#' validate_phhs(phhs = phhs, regions = region_shp, region_idcol = "region_id",
+#' region_popcol = "population")
 #' }
 validate_phhs <- function(phhs, regions, region_idcol, region_popcol){
+
+  # for clean R CMD CHECK with dplyr masking
+  pop_diff <- pop_diff_raw <- phh_pop_sum <- NULL
 
   # rename columns for easy testing
   # PHHs
@@ -476,7 +481,6 @@ validate_phhs <- function(phhs, regions, region_idcol, region_popcol){
   phhs_fortest$region_popcol <- phhs_fortest[,region_popcol, drop=TRUE]
   phhs_fortest[, region_idcol] <- NULL
   phhs_fortest[, region_popcol] <- NULL
-
 
   # regions
   regions_fortest <- dplyr::select(regions, dplyr::all_of(c(region_idcol, region_popcol))) |>
@@ -528,7 +532,6 @@ validate_phhs <- function(phhs, regions, region_idcol, region_popcol){
     region_test_result$result <- "Passed"
     region_test_result$failing_regions <- list(NA)
   }
-
 
   # return result
 

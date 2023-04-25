@@ -56,7 +56,8 @@ Get Pseudo-Households (PHH) for a single region
 }
 \examples{
 \dontrun{
-phhs <- get_phhs_single(region = region_shp, region_idcol = "region_id", region_popcol = "population", roads = road_shp, roads_idcol = "road_id")
+phhs <- get_phhs_single(region = region_shp, region_idcol = "region_id",
+region_popcol = "population", roads = road_shp, roads_idcol = "road_id")
 }
 
 }
