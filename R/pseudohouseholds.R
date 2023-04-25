@@ -416,3 +416,78 @@ remove_clustered_phhs <- function(phh_inregion_filtered, min_phh_distance) {
 
   return (phh_keepers)
 }
+
+validate_phhs <- function(phhs, regions, region_idcol, region_popcol){
+
+  # rename columns for easy testing
+  # PHHs
+  phhs_fortest <- dplyr::select(phhs, dplyr::all_of(c(region_idcol, region_popcol))) |>
+    sf::st_drop_geometry()
+
+  phhs_fortest$region_idcol <- phhs_fortest[,region_idcol, drop=TRUE]
+  phhs_fortest$region_popcol <- phhs_fortest[,region_popcol, drop=TRUE]
+  phhs_fortest[, region_idcol] <- NULL
+  phhs_fortest[, region_popcol] <- NULL
+
+
+  # regions
+  regions_fortest <- dplyr::select(regions, dplyr::all_of(c(region_idcol, region_popcol))) |>
+    sf::st_drop_geometry()
+
+  regions_fortest$region_idcol <- regions_fortest[,region_idcol, drop=TRUE]
+  regions_fortest$region_popcol <- regions_fortest[,region_popcol, drop=TRUE]
+  regions_fortest[, region_idcol] <- NULL
+  regions_fortest[, region_popcol] <- NULL
+
+  ## test population: do PHHs associated with regions have the same population as the full region?
+
+  pop_test_result <- dplyr::tibble(test = "Population",
+                                   description = "Do PHH populations sum to regional populations?")
+  pop_test <- phhs_fortest |>
+    dplyr::group_by(region_idcol) |>
+    dplyr::summarise(phh_pop_sum = sum(region_popcol)) |>
+    dplyr::inner_join(regions_fortest, by = "region_idcol") |>
+    dplyr::mutate(pop_diff_raw = phh_pop_sum - region_popcol,
+                  pop_diff = abs(pop_diff_raw) > .1)
+
+  if (any(pop_test$pop_diff, na.rm = TRUE)) {
+    bad_regions <- dplyr::filter(pop_test, pop_diff) |>
+      dplyr::pull(region_idcol) |>
+      unique()
+    pop_test_result$result <- "Failed"
+    pop_test_result$failing_regions <- list(bad_regions)
+  } else {
+    pop_test_result$result <- "Passed"
+    pop_test_result$failing_regions <- list(NA)
+  }
+
+
+  ## test all populated input regions in output
+
+  region_test_result <- dplyr::tibble(test = "Regions",
+                                      description = "Do all populated regions have at least one PHH?")
+
+  region_test <- regions_fortest |>
+    dplyr::filter(!region_idcol %in% phhs_fortest$region_idcol ) |>
+    dplyr::filter(region_popcol > 0)
+
+  if (nrow(region_test) > 0) {
+    bad_regions <- unique(region_test$region_idcol) #paste0(unique(region_test$region_idcol), collapse = ",")
+
+    region_test_result$result <- "Failed"
+    region_test_result$failing_regions <- list(bad_regions)
+  } else {
+    region_test_result$result <- "Passed"
+    region_test_result$failing_regions <- list(NA)
+  }
+
+
+  # return result
+
+  result <- dplyr::bind_rows(
+    pop_test_result,
+    region_test_result
+  )
+
+  return (result)
+}
