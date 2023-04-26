@@ -33,7 +33,7 @@
 #'  library(future)
 #'  phhs <- get_phhs_parallel(region = ottawa_db_shp[1:5,], region_idcol = "DBUID",
 #'  region_popcol = "dbpop2021", roads = ottawa_roads_shp, roads_idcol = "NGD_UID")
-#'
+#'\donttest{
 #'  # Create PHHs for the first 5 dissemination blocks in Ottawa, Ontario, using
 #'  # parallel processing (consult documentation for the package future for details
 #'  # about parallel processing).
@@ -43,7 +43,7 @@
 #'
 #'  # Shut down parallel workers
 #'  future::plan(future::sequential)
-#'
+#'}
 get_phhs_parallel <- function(regions, region_idcol, roads, region_popcol = NA, roads_idcol = NA, phh_density = 0.005, min_phh_pop = 5, min_phhs_per_region = 1, min_phh_distance = 25, road_buffer_m = 5, delta_distance_m = 5, skip_unpopulated_regions = TRUE ){
 
   # regions must each have a unique id
