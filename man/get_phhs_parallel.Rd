@@ -58,22 +58,25 @@ This function is a wrapper around get_phhs_single(), and parameters are
 passed on to it.
 }
 \examples{
- # Create PHHs for the first 5 dissemination blocks in Ottawa, Ontario, without
+ # Create PHHs for the first 2 dissemination blocks in Ottawa, Ontario, without
  # using any parallel processing
  library(sf)
  library(pseudohouseholds)
- library(future)
- phhs <- get_phhs_parallel(region = ottawa_db_shp[1:5,], region_idcol = "DBUID",
+ phhs <- get_phhs_parallel(region = ottawa_db_shp[1:2,], region_idcol = "DBUID",
  region_popcol = "dbpop2021", roads = ottawa_roads_shp, roads_idcol = "NGD_UID")
+
 
  # Create PHHs for the first 20 dissemination blocks in Ottawa, Ontario, using
  # parallel processing (consult documentation for the package future for details
  # about parallel processing).
- future::plan(future::multisession, workers = 2)
+ \dontrun{
+ library(future)
+ future::plan(future::multisession)
  phhs <- get_phhs_parallel(region = ottawa_db_shp[1:20,], region_idcol = "DBUID",
   region_popcol = "dbpop2021", roads = ottawa_roads_shp, roads_idcol = "NGD_UID")
 
-  ## Shut down parallel workers
+ # Shut down parallel workers
  future::plan(future::sequential)
+}
 
 }
