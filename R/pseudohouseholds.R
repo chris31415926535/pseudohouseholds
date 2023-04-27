@@ -1,3 +1,7 @@
+PHH_TYPE_REGULAR <- 0
+PHH_TYPE_UNPOPULATED <- 1
+PHH_TYPE_NO_VALID_PHHS_FOUND <- 2
+
 #' Get Pseudo-Households (PHH) for many regions, with optional parallel processing
 #'
 #' Calculate PHHs for a set of regions using a given road network.
@@ -37,7 +41,7 @@
 #'  # Create PHHs for the first 20 dissemination blocks in Ottawa, Ontario, using
 #'  # parallel processing (consult documentation for the package future for details
 #'  # about parallel processing).
-#'  \dontrun{
+#'  \donttest{
 #'  library(future)
 #'  future::plan(future::multisession)
 #'  phhs <- get_phhs_parallel(region = ottawa_db_shp[1:20,], region_idcol = "DBUID",
@@ -75,9 +79,7 @@ get_phhs_parallel <- function(regions, region_idcol, roads, region_popcol = NA, 
   phh_valid <- phh_candidates[vapply(phh_candidates, length, FUN.VALUE = 1) > 0]
 
   # tidy them up
-  phhs <- dplyr::tibble(x=phh_valid) |>
-    tidyr::unnest(cols = c("x")) |>
-    sf::st_as_sf()
+  phhs <- dplyr::bind_rows(phh_valid)
 
   # remove any temporary options used to suppress repeated warnings
   warning_cleanup()
@@ -170,8 +172,19 @@ get_phhs_single <- function(region, region_idcol, roads, region_popcol = NA, roa
     region_pop <- region[, region_popcol, drop=TRUE];
 
     # if no population and we're skipping such regions, return empty result
-    if (region_pop == 0 & skip_unpopulated_regions) return(dplyr::tibble());
+    # if no population and we're including such regions, return default response
+    if (region_pop == 0) {
+      if (skip_unpopulated_regions){
+        result <- dplyr::tibble()
+      }  else {
+        result <- create_default_response(region = region, region_idcol = region_idcol, roads_idcol = roads_idcol, type = PHH_TYPE_UNPOPULATED)
+      }
+
+      return(result);
+    }
   }
+
+
 
   # get the roads that intersect the region plus a buffer
   # we cast to multilinestring and then back to linestring to deal with disconnected multilinestrings
@@ -181,10 +194,10 @@ get_phhs_single <- function(region, region_idcol, roads, region_popcol = NA, roa
 
   # ggplot() + geom_sf(data=region) + geom_sf(data=roads_touching_region)
 
-  # if it doesn't intersect any roads, return no results.
-  # for future consideration, perhaps options--e.g. could return centroid instead
+  # if it doesn't intersect any roads, return default response
   if (nrow(roads_touching_region) == 0) {
-    return(dplyr::tibble())
+    result <- create_default_response(region = region, region_idcol = region_idcol, roads_idcol = roads_idcol, type = PHH_TYPE_NO_VALID_PHHS_FOUND)
+    return(result)
   }
 
   ## set candidate PHHs by sampling road segments at the density set by the user
@@ -225,7 +238,7 @@ get_phhs_single <- function(region, region_idcol, roads, region_popcol = NA, roa
   # any (probably one) that are inside the region. This seems to work well with
   # weird convexities and strange crescent geometries, giving a good number of
   # points. If there are too many too close together we thin them out later.
-  phh_inregion <- get_phh_points_pushpull (region, phh_onstreet, roads_idcol, delta_distance = delta_distance_m)
+  phh_inregion <- get_phh_points (region, phh_onstreet, region_idcol, roads_idcol, delta_distance = delta_distance_m)
 
   #ggplot() + geom_sf(data=region) + geom_sf(data=roads_touching_region) + geom_sf(data=phh_inregion)
 
@@ -277,10 +290,10 @@ get_phhs_single <- function(region, region_idcol, roads, region_popcol = NA, roa
 # the region, and so simply pulling shapes from the edges will often move them
 # outside the region. In cases where both candidates are valid, unreasonably
 # close PHHs will be cleaned up later.
-get_phh_points_pushpull <- function(db, phh_onstreet, roads_idcol, delta_distance = 5){
+get_phh_points <- function(db, phh_onstreet, region_idcol, roads_idcol, delta_distance = 5){
 
   # for clean R CMD CHECK
-  PHH_X_pull <- PHH_X_push <- PHH_Y_pull <- PHH_Y_push <- geometry <- NULL
+  PHH_X_pull <- PHH_X_push <- PHH_Y_pull <- PHH_Y_push <- geometry <- .tempid <- NULL
 
   # get db centroid coordinates
   db_centroid <- sf::st_centroid(db)
@@ -329,14 +342,18 @@ get_phh_points_pushpull <- function(db, phh_onstreet, roads_idcol, delta_distanc
   # ggplot() + geom_sf(data=db) +  geom_sf(data=roads_touching_region) + geom_sf(data=phh_push, colour="red")+ geom_sf(data=phh_pull, colour="blue") +  geom_sf(data=db_centroid)
 
   # remove candidates that aren't inside the region
+  # if we proceed, these are regular PHHs and we type them as such
   phh_indb <- sf::st_filter(phh_pushpull, db)
+  phh_indb$phh_type <- PHH_TYPE_REGULAR
 
   # strange geometries with only a few border roads can lead to no points inside
+  # in this case, we sample 16 points distributed radially around the candidate point
+  #  and keep the first one we find that's inside the region
   if (nrow(phh_indb) == 0) {
     phh_onstreet_foranalysis <- phh_onstreet
     phh_onstreet_foranalysis$.tempid <- 1:nrow(phh_onstreet)
     sf::st_agr(phh_onstreet_foranalysis) = "constant"
-    pts_spread <- sf::st_buffer(phh_onstreet_foranalysis, delta_distance * 2, nQuadSegs = 4) |>
+    pts_spread <- sf::st_buffer(phh_onstreet_foranalysis, delta_distance, nQuadSegs = 4) |>
       sf::st_cast("POINT")
 
     # ggplot(pts_spread) + geom_sf()
@@ -349,7 +366,15 @@ get_phh_points_pushpull <- function(db, phh_onstreet, roads_idcol, delta_distanc
       dplyr::select(-.tempid) |>
       sf::st_as_sf()
 
-  }
+    phh_indb$phh_type <- PHH_TYPE_REGULAR
+
+    # if we STILL don't get at least one valid PHH for some reason, return the
+    # default point -- either centroid or approx geometric center
+    if (nrow(phh_indb) == 0) {
+      phh_indb <- create_default_response(region = db, region_idcol = region_idcol, roads_idcol = roads_idcol, type = PHH_TYPE_NO_VALID_PHHS_FOUND)
+    }
+
+  } # end if no valid points returned by push/pull algorithm
 
   # rename the geometry column for compatibility with the sf package
   if (!"geometry" %in% colnames(phh_indb)) phh_indb <- dplyr::rename(phh_indb, x = geometry)
@@ -588,8 +613,8 @@ get_center <- function(shape) {
   #ggplot(crescent_hollow) + geom_sf()
 
   # sample points within the shape
-  pts <- sf::st_sample(shape, 100) |>
-    sf::st_as_sf()
+  pts <- sf::st_sample(shape, 100)
+  pts <- sf::st_sf(geometry = pts)
 
   #ggplot(pts) + geom_sf()
 
@@ -600,7 +625,28 @@ get_center <- function(shape) {
   biggest_dist_index <- which(distances == max(distances))
   pt <- pts[biggest_dist_index,]
 
+  # add back the input shape's information
+  pt <- dplyr::bind_cols(pt, sf::st_drop_geometry(shape))
   #ggplot() + geom_sf(data = crescent) + geom_sf(data = pts) + geom_sf(data = pt, colour="red")
 
   return (pt)
 }
+
+
+
+create_default_response <- function(region, region_idcol, roads_idcol, type) {
+
+  result <- get_center(region)
+
+  result$phh_id <- paste0(result[,region_idcol, drop=TRUE], ".1")
+
+  if (!is.na(roads_idcol)) {
+    result[,roads_idcol] <- NA
+  }
+
+  result$phh_type <- type
+
+  return (result)
+}
+
+#create_default_response(region = region, region_idcol = "DBUID", roads_idcol = "NGD_UID", type = PHH_TYPE_NO_VALID_PHHS_FOUND)

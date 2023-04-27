@@ -69,7 +69,7 @@ passed on to it.
  # Create PHHs for the first 20 dissemination blocks in Ottawa, Ontario, using
  # parallel processing (consult documentation for the package future for details
  # about parallel processing).
- \dontrun{
+ \donttest{
  library(future)
  future::plan(future::multisession)
  phhs <- get_phhs_parallel(region = ottawa_db_shp[1:20,], region_idcol = "DBUID",
