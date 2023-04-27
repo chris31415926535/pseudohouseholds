@@ -253,8 +253,11 @@ get_phhs_single <- function(region, region_idcol, roads, region_popcol = NA, roa
     #result$pop <- as.numeric(region_pop/nrow(result))
     result[, region_popcol] <- as.numeric(region_pop/nrow(result))
   }
-  result$geometry <- result$x
-  result$x <- NULL
+
+  if ("x" %in% colnames(result)) {
+    result$geometry <- result$x
+    result$x <- NULL
+  }
 
   if (roads_idcol == "road_id_NA") result$road_id_NA <- NULL
 
@@ -328,8 +331,28 @@ get_phh_points_pushpull <- function(db, phh_onstreet, roads_idcol, delta_distanc
   # remove candidates that aren't inside the region
   phh_indb <- sf::st_filter(phh_pushpull, db)
 
+  # strange geometries with only a few border roads can lead to no points inside
+  if (nrow(phh_indb) == 0) {
+    phh_onstreet_foranalysis <- phh_onstreet
+    phh_onstreet_foranalysis$.tempid <- 1:nrow(phh_onstreet)
+    sf::st_agr(phh_onstreet_foranalysis) = "constant"
+    pts_spread <- sf::st_buffer(phh_onstreet_foranalysis, delta_distance * 2, nQuadSegs = 4) |>
+      sf::st_cast("POINT")
+
+    # ggplot(pts_spread) + geom_sf()
+
+    pts_inshape <- sf::st_filter(pts_spread, db) |>
+      dplyr::group_by(.tempid) |>
+      dplyr::slice_head(n=1)
+
+    phh_indb <- pts_inshape |>
+      dplyr::select(-.tempid) |>
+      sf::st_as_sf()
+
+  }
+
   # rename the geometry column for compatibility with the sf package
-  phh_indb <- dplyr::rename(phh_indb, x = geometry)
+  if (!"geometry" %in% colnames(phh_indb)) phh_indb <- dplyr::rename(phh_indb, x = geometry)
 
   # ggplot() + geom_sf(data=db) +  geom_sf(data=roads_touching_region) + geom_sf(data=phh_indb)
 
@@ -542,4 +565,42 @@ validate_phhs <- function(phhs, regions, region_idcol, region_popcol){
   )
 
   return (result)
+}
+
+
+
+# internal function to return either the centroid (for a convex shape) or else
+# the point inside the shape farthest from its boundaries. used for unpopulated
+# regions, or regions with no roads, to still provide a single representative pt
+get_center <- function(shape) {
+
+  # calculate the centroid
+  centroid <- sf::st_centroid(shape)
+
+  # if the centroid is inside the shape, we are done: return the centroid
+  if (sf::st_contains(shape, centroid, sparse = FALSE)) return (centroid)
+
+  #ggplot() + geom_sf(data = centroid) + geom_sf(data = crescent)
+
+  # create a hollow version of the shape for measuring distances to the borders
+  shape_hollow <- sf::st_cast(shape, "MULTILINESTRING")
+
+  #ggplot(crescent_hollow) + geom_sf()
+
+  # sample points within the shape
+  pts <- sf::st_sample(shape, 100) |>
+    sf::st_as_sf()
+
+  #ggplot(pts) + geom_sf()
+
+  # get distances from the sampled points to the borders
+  distances <- sf::st_distance(shape_hollow, pts)[1,]
+
+  # choose the shape with the biggest distance to the border
+  biggest_dist_index <- which(distances == max(distances))
+  pt <- pts[biggest_dist_index,]
+
+  #ggplot() + geom_sf(data = crescent) + geom_sf(data = pts) + geom_sf(data = pt, colour="red")
+
+  return (pt)
 }
