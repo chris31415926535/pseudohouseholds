@@ -101,6 +101,13 @@ This DB is a few hundred meters across, borders Bank St. on its west,
 and extends to the east into an irregularly shaped residential area.
 From the printout above, we see that it had a population of 125 in 2021.
 
+### If the region is unpopulated, optionally return a default point.
+
+By default, if a region is unpopulated it receives one single point with
+population 0 of `phh_type` type 1. This point will be the centroid if it
+is inside the region, otherwise it will be an approximation of the
+region’s “pole of inaccessibility.” Details are provided below.
+
 ### Find road segments intersecting or near the region
 
 First, we identify road segments that either intersect with the region
@@ -155,6 +162,24 @@ a spatial filter.
 
 <img src="man/figures/README-plot_db_pointsinregion-1.png" width="50%" />
 
+### (If necessary) If no valid points are returned, sample radially around our on-street points
+
+The push/pull algorithm may not return valid PHHs in some cases, for
+example if the region is concave and has only small intersections with
+any road. In this case we use a backup algorithm that samples 16
+candidate points distributed radially with radius `delta_distance`
+around our on-street point and selects the first candidate point within
+the region.
+
+### (If necessary) If *still* no valid points are returned, return a default region point.
+
+If for any reason the algorithm has still not found a valid candidate
+PHH, it will now return a single default point. It will return the
+centroid if the centroid is inside the region, or else an approximation
+of the visual centre of the region. In either case this point will have
+`phh_type` 2, indicating no valid PHHs were found using the standard
+methods.
+
 ### (Optionally) Ensure our PHHs have a minimum population
 
 If we are assigning populations to our PHHs, we next check to ensure
@@ -203,3 +228,27 @@ and do not provide “true” population distributions (whatever that might
 even mean). While PHHs can provide advantages over centroid-based
 analyses, they also have limitations and should be used with these
 limitations in mind.
+
+## Details
+
+### The variable `phh_type`
+
+- 1: Normal PHH
+- 2: Unpopulated region
+- 3: No valid PHHs found
+
+### The default point
+
+If a region is unpopulated or if it is no valid PHHs can be found, the
+function will return the region’s “default point.” If the region’s
+centroid is inside it, the default point is the centroid. If the
+centroid is outside the region, we use a simple algorithm to choose a
+point that is approximately in the region’s “pole of inaccessibility,”
+or farthest from each border: we randomly sample 100 points inside the
+region, and choose the one that is farthest from any border.
+
+Such points are flagged as either `phh_type` 1 (unpopulated) or
+`phh_type` 2 (populated but no valid PHHs found), and care should be
+taken when using these variables for analysis since they may be farther
+from road networks than regular PHHs and may not represent actual
+population distributions.
