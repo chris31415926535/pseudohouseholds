@@ -1,7 +1,7 @@
 Package: pseudohouseholds
 Type: Package
 Title: Generate Pseudohouseholds on Road Networks in Regions
-Version: 0.1.0
+Version: 0.1.1
 Authors@R: person(given = "Christopher", 
     family = "Belanger", 
     email = "christopher.a.belanger@gmail.com",
