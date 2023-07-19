@@ -1,3 +1,12 @@
+## Resubmission (v0.1.1) in response to comments from Prof Brian Ripley, 2023-07-04
+
+* Updated examples to fix error on platforms fedora-clang-devel and fedora-gcc-devel.
+* Verified that examples run properly using rhub::check()
+
+## Resubmission in response to comments from Benjamin Altmann, 2023-04-27
+
+* Replaced \dontrun{} with \donttest{} in examples, as requested.
+
 ## Resumbission in response to comments from Victoria Wimmer, 2023-04-25
 
 * Removed \dontrun{} from most example code and made a few minor tweaks to ensure it

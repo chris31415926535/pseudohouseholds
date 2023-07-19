@@ -1,7 +1,7 @@
 Package: pseudohouseholds
 Type: Package
 Title: Generate Pseudohouseholds on Road Networks in Regions
-Version: 0.1.0
+Version: 0.1.1
 Authors@R: person(given = "Christopher", 
     family = "Belanger", 
     email = "christopher.a.belanger@gmail.com",
@@ -18,8 +18,7 @@ RoxygenNote: 7.2.3
 Imports: 
     dplyr,
     furrr,
-    sf,
-    tidyr
+    sf
 Depends: 
     R (>= 2.10)
 Suggests: 
